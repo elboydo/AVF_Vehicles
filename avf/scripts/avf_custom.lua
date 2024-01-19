@@ -35,8 +35,26 @@ ai_locations = {
 
 DEBUG = false
 DEBUG_EJECTORS  =false
+vehicle_alive = true
+core_shape_index = 1
+core_shapes = {
+
+}
+turret_shape_index = 1
+
+turret_shapes = {
+
+
+}
+hull_filter = 0
+turret_filter = 0
+filter_max = 255
 
 function init()
+	hull_filter = 1+ math.floor((filter_max/2*math.random())-1)
+	turret_filter = (filter_max/2)+ math.floor((filter_max/2*math.random())-1)
+
+
 	-- DebugPrint("starting")
 	for key,val in pairs(vehicleParts.guns) do 
 		
@@ -83,6 +101,8 @@ function initVehicle()
 
 	local totalShapes = ""
 	for i=1,#vehicle.shapes do
+		-- SetShapeCollisionFilter(vehicle.shapes[i], hull_filter, 255- turret_filter )
+		add_core_shape(vehicle.shapes[i])
 		local value = GetTagValue(vehicle.shapes[i], "component")
 		-- if(value~= "")then
 			-- if(value=="chassis") then
@@ -160,6 +180,8 @@ function traverseTurret(turretJoint,attatchedShape)
 		end
 	end
 	for t_s = 1,#turret_shapes do 
+		add_turret_shape(turret_shapes[t_s])
+		-- SetShapeCollisionFilter(turret_shapes[t_s], turret_filter, 255-  hull_filter )
 		local joints = GetShapeJoints(turret_shapes[t_s])
 		for j=1,#joints do 
 			if(joints[j]~=turretJoint)then
@@ -188,6 +210,8 @@ function addGun(gunJoint,attatchedShape,turret_mounted)
 	local gun = GetJointOtherShape(gunJoint, attatchedShape)
 	local gun_shapes = GetBodyShapes( GetShapeBody(gun))
 	for s =1,#gun_shapes do
+		add_core_shape(gun_shapes[s])
+		-- SetShapeCollisionFilter(gun_shapes[s], hull_filter, 255- turret_filter )
 		if(HasTag(gun_shapes[s], "component") and GetTagValue(gun_shapes[s], "component") == "gun" ) then
 			gun = gun_shapes[s]
 		end
@@ -523,11 +547,51 @@ end
 
 
 
--- function tick(dt)
--- 	check_AVF:tick()
+function tick(dt)
+	-- check_AVF:tick()
+	if(not (GetTagValue(vehicle.id,"AVF_status") and GetTagValue(vehicle.id,"AVF_status") == "disabled")) then 
 
--- end
+		maintain_collision_filter()
+	elseif(vehicle_alive) then 
+		remove_collision_filter()
+		-- DebugWatch("tank "..vehicle.id.." disabled", GetTagValue(vehicle.id,"AVF_status"))
+		vehicle_alive = false
+	end
+end
 
+
+
+function add_core_shape(shape)
+
+	core_shapes [core_shape_index ] = shape
+	core_shape_index = core_shape_index +1
+end
+
+function add_turret_shape(shape)
+
+	turret_shapes[turret_shape_index] = shape
+	turret_shape_index = turret_shape_index+1
+end
+
+function maintain_collision_filter()
+
+	for i, shape in ipairs(turret_shapes) do 
+		SetShapeCollisionFilter(shape, turret_filter, 255-  hull_filter )
+	end
+	for i, shape in ipairs(core_shapes) do 	
+		SetShapeCollisionFilter(vehicle.shapes[i], hull_filter, 255- turret_filter )
+	end
+end
+
+function remove_collision_filter()
+
+	for i, shape in ipairs(turret_shapes) do 
+		SetShapeCollisionFilter(shape, 1, 255 )
+	end
+	for i, shape in ipairs(core_shapes) do 	
+		SetShapeCollisionFilter(vehicle.shapes[i], 1, 255 )
+	end
+end
 
 function draw(dt)
 	if(check_AVF.enabled) then 
